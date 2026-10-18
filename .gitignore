@@ -1,0 +1,9 @@
+**/node_modules/
+**/dist/
+**/target/
+**/.pio/
+**/.idea/
+**/.vscode/
+**/.git/
+**/.env
+HW/secrets.h
