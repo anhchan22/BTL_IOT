@@ -278,7 +278,7 @@ export function DataSensor() {
       </div>
 
       <div className='flex shrink-0 flex-wrap items-center justify-between gap-3 text-sm'>
-        <span className='text-muted-foreground'>Trang <span className='font-medium text-foreground'>{result?.page ?? page}</span> trên {totalPages} · Tổng {result?.totalItems ?? 0} bản ghi</span>
+        <span className='text-muted-foreground'>Trang <span className='font-medium text-foreground'>{result?.page ?? page}</span> trên {totalPages} · {result?.totalItems ?? 0} bản ghi phù hợp</span>
         <div className='flex items-center gap-2'>
           <span className='text-muted-foreground'>Số dòng</span>
           <select aria-label='Số dòng mỗi trang' className='h-9 rounded-md border border-input bg-background px-2' value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1) }}>

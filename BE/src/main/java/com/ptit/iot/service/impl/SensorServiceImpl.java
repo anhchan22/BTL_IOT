@@ -20,6 +20,7 @@ import com.ptit.iot.exception.DomainCode;
 import com.ptit.iot.mapper.IoTMapper;
 import com.ptit.iot.repository.DataSensorRepository;
 import com.ptit.iot.repository.SensorChartProjection;
+import com.ptit.iot.repository.SensorRecordCutoff;
 import com.ptit.iot.service.SensorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -66,6 +67,9 @@ public class SensorServiceImpl implements SensorService {
 		LocalDateTime fromTime = parseTime(from, "from");
 		LocalDateTime toTime = parseTime(to, "to");
 		if (fromTime != null && toTime != null && !fromTime.isBefore(toTime)) throw new BusinessException(DomainCode.INVALID_TIME_RANGE);
+		var cutoff = dataSensorRepository.findRecentRecordsCutoff();
+		LocalDateTime cutoffTime = cutoff.map(SensorRecordCutoff::getRecordedAt).orElse(null);
+		Long cutoffId = cutoff.map(SensorRecordCutoff::getId).orElse(null);
 		String sortProperty = switch (sortBy == null ? "time" : sortBy.toLowerCase()) {
 			case "time", "recorded_at", "recordedat" -> "recordedAt";
 			case "value" -> "value";
@@ -74,7 +78,8 @@ public class SensorServiceImpl implements SensorService {
 			default -> throw new BusinessException(DomainCode.INVALID_SORT, sortBy);
 		};
 		Sort.Direction direction = parseDirection(sortDir);
-		Page<DataSensor> result = dataSensorRepository.findWithFilters(normalizeSensorCode(sensorCode), minValue, maxValue,
+		Page<DataSensor> result = dataSensorRepository.findWithFilters(cutoffTime, cutoffId,
+				normalizeSensorCode(sensorCode), minValue, maxValue,
 				fromTime, toTime, PageRequest.of(page - 1, pageSize, Sort.by(direction, sortProperty)));
 		return new PageResponse<>(result.getContent().stream().map(mapper::toSensorRecordResponse).toList(),
 				page, pageSize, result.getTotalElements(), result.getTotalPages());

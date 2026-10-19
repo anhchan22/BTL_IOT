@@ -31,7 +31,9 @@ public interface DataSensorRepository extends JpaRepository<DataSensor, Long> {
 			SELECT reading
 			FROM DataSensor reading
 			LEFT JOIN FETCH reading.sensor sensor
-			WHERE (:sensorKey IS NULL OR sensor.sensorKey = :sensorKey)
+			WHERE (:cutoffTime IS NULL OR reading.recordedAt > :cutoffTime
+			   OR (reading.recordedAt = :cutoffTime AND reading.id >= :cutoffId))
+			  AND (:sensorKey IS NULL OR sensor.sensorKey = :sensorKey)
 			  AND (:minValue IS NULL OR reading.value >= :minValue)
 			  AND (:maxValue IS NULL OR reading.value <= :maxValue)
 			  AND (:fromTime IS NULL OR reading.recordedAt >= :fromTime)
@@ -41,19 +43,27 @@ public interface DataSensorRepository extends JpaRepository<DataSensor, Long> {
 			SELECT COUNT(reading)
 			FROM DataSensor reading
 			LEFT JOIN reading.sensor sensor
-			WHERE (:sensorKey IS NULL OR sensor.sensorKey = :sensorKey)
+			WHERE (:cutoffTime IS NULL OR reading.recordedAt > :cutoffTime
+			   OR (reading.recordedAt = :cutoffTime AND reading.id >= :cutoffId))
+			  AND (:sensorKey IS NULL OR sensor.sensorKey = :sensorKey)
 			  AND (:minValue IS NULL OR reading.value >= :minValue)
 			  AND (:maxValue IS NULL OR reading.value <= :maxValue)
 			  AND (:fromTime IS NULL OR reading.recordedAt >= :fromTime)
 			  AND (:toTime IS NULL OR reading.recordedAt < :toTime)
 			""")
 	Page<DataSensor> findWithFilters(
+			@Param("cutoffTime") LocalDateTime cutoffTime,
+			@Param("cutoffId") Long cutoffId,
 			@Param("sensorKey") String sensorKey,
 			@Param("minValue") BigDecimal minValue,
 			@Param("maxValue") BigDecimal maxValue,
 			@Param("fromTime") LocalDateTime fromTime,
 			@Param("toTime") LocalDateTime toTime,
 			Pageable pageable);
+
+	@Query(value = "SELECT recorded_at AS recordedAt, id AS id FROM data_sensor "
+			+ "ORDER BY recorded_at DESC, id DESC LIMIT 1 OFFSET 9999", nativeQuery = true)
+	Optional<SensorRecordCutoff> findRecentRecordsCutoff();
 
 	List<DataSensor> findByStatusIsNull();
 	List<DataSensor> findBySensorIsNull();

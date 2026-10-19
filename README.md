@@ -4,6 +4,8 @@
 
 ## Chạy local
 
+Backend yêu cầu Java 25 (bản LTS hiện tại) và Maven Wrapper.
+
 1. Khởi động MySQL và tạo database `classroom_iot`. Backend dùng Flyway để tạo bảng. Có thể ghi đè `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` bằng biến môi trường.
 2. Khởi động backend:
 

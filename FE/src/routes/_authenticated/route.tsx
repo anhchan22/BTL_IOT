@@ -6,7 +6,7 @@ import { getToken } from '@/lib/api'
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ location }) => {
     if (!getToken()) {
-      const redirectTo = `${location.pathname}${location.search}${location.hash}`
+      const redirectTo = location.href
       throw redirect({ to: '/login', search: { redirect: redirectTo } })
     }
   },
