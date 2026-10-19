@@ -15,7 +15,7 @@ export type SensorValue = { value: number; unit: string; status: string; recorde
 export type LatestSensor = { temperature: SensorValue | null; humidity: SensorValue | null; light: SensorValue | null; lastUpdatedAt: string | null }
 export type SensorPoint = { id: number; temperature: number; humidity: number; light: number; time: string }
 export type SensorRecord = { id: number; sensorCode: string; sensorName: string; value: number; unit: string; status: string; recordedAt: string }
-export type Device = { id: number; deviceCode: string; name: string; location: string | null; description: string | null; status: 'ON' | 'OFF' | 'LOADING'; lastConfirmedStatus: 'ON' | 'OFF'; lastChangedAt: string | null }
+export type Device = { id: number; deviceCode: string; name: string; location: string | null; description: string | null; status: 'ON' | 'OFF' | 'LOADING'; lastConfirmedStatus: 'ON' | 'OFF'; lastChangedAt: string | null; online: boolean }
 export type HistoryRecord = { id: number; device: string; action: 'ON' | 'OFF'; performedBy: string | null; responseTimeSeconds: number | null; status: 'SUCCESS' | 'FAILED' | 'LOADING'; time: string; errorMessage?: string | null }
 export type Page<T> = { items: T[]; page: number; pageSize: number; totalItems: number; totalPages: number }
 

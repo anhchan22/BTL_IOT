@@ -12,5 +12,7 @@ public interface DeviceService {
 	List<DeviceDTO> getDevices();
 	MqttStatusResponse getMqttStatus();
 	void handleDeviceAck(int deviceId, String actionText, String resultText);
+	void handleDeviceRestoreAck(int deviceId, String actionText, String resultText);
+	void handleDeviceAvailability(String status);
 	void expireTimedOutCommands();
 }

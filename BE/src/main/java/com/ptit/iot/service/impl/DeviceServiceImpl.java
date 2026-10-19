@@ -38,9 +38,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DeviceServiceImpl implements DeviceService {
 	private static final List<String> DEVICE_CODES = List.of("LED1", "LED2", "LED3");
 	private static final ZoneId CLASSROOM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -112,6 +114,68 @@ public class DeviceServiceImpl implements DeviceService {
 	}
 
 	@Override
+	public void handleDeviceAvailability(String statusText) {
+		boolean online = "online".equalsIgnoreCase(statusText);
+		boolean offline = "offline".equalsIgnoreCase(statusText);
+		if (!online && !offline) return;
+
+		CommandMutation mutation = transactionTemplate().execute(status -> {
+			List<Device> devices = deviceRepository.findByDeviceCodesForUpdate(DEVICE_CODES);
+			if (devices.size() != DEVICE_CODES.size()) return null;
+			boolean shouldRestore = online && devices.stream().anyMatch(device -> !device.isOnline());
+			devices.forEach(device -> device.setOnline(online));
+			if (!offline) return new CommandMutation(List.of(), toDeviceDtos(devices), shouldRestore);
+
+			List<ActionLog> pending = actionLogRepository.findAllByDevice_DeviceCodeInAndStatus(
+					DEVICE_CODES, ActionLogStatus.LOADING);
+			if (pending.isEmpty()) {
+				devices.forEach(device -> {
+					if (device.getCurrentStatus() == DeviceStatus.LOADING) device.setCurrentStatus(device.getLastConfirmedStatus());
+				});
+				return new CommandMutation(List.of(), toDeviceDtos(devices), false);
+			}
+			CommandMutation failed = completeLogs(pending, devices, false, "ESP disconnected before confirming the command");
+			return new CommandMutation(failed.logs(), failed.devices(), false);
+		});
+		if (mutation != null) broadcast(mutation);
+		if (mutation != null && mutation.restore()) restoreConfirmedStates();
+	}
+
+	@Override
+	public void handleDeviceRestoreAck(int deviceId, String actionText, String resultText) {
+		DeviceAction action = parseAction(actionText);
+		if (action == null || deviceId < 1 || deviceId > 3 || resultText == null) return;
+		boolean success = "success".equalsIgnoreCase(resultText.trim());
+		CommandMutation mutation = transactionTemplate().execute(status -> {
+			Device device = deviceRepository.findByDeviceCodeForUpdate("LED" + deviceId).orElse(null);
+			if (device == null) return null;
+			if (!success) {
+				device.setOnline(false);
+				device.setCurrentStatus(device.getLastConfirmedStatus());
+				return new CommandMutation(List.of(), toDeviceDtos(List.of(device)));
+			}
+			DeviceStatus restored = action == DeviceAction.ON ? DeviceStatus.ON : DeviceStatus.OFF;
+			device.setCurrentStatus(restored);
+			device.setLastConfirmedStatus(restored);
+			return new CommandMutation(List.of(), toDeviceDtos(List.of(device)));
+		});
+		if (!success) log.warn("ESP failed to restore LED{} to {} after reconnect", deviceId, action);
+		if (mutation != null) broadcast(mutation);
+	}
+
+	private void restoreConfirmedStates() {
+		for (Device device : deviceRepository.findAllByOrderByIdAsc()) {
+			if (!DEVICE_CODES.contains(device.getDeviceCode())) continue;
+			DeviceAction action = device.getLastConfirmedStatus() == DeviceStatus.ON ? DeviceAction.ON : DeviceAction.OFF;
+			try {
+				mqttService.publishDeviceRestore(device.getId().intValue(), action);
+			} catch (RuntimeException exception) {
+				log.warn("Could not restore {} after ESP reconnect: {}", device.getDeviceCode(), exception.getMessage());
+			}
+		}
+	}
+
+	@Override
 	public void expireTimedOutCommands() {
 		CommandMutation mutation = transactionTemplate().execute(status -> {
 			LocalDateTime cutoff = LocalDateTime.now(CLASSROOM_ZONE).minusNanos(commandTimeoutMs * 1_000_000L);
@@ -143,6 +207,7 @@ public class DeviceServiceImpl implements DeviceService {
 				? deviceRepository.findByDeviceCodesForUpdate(DEVICE_CODES)
 				: deviceRepository.findByDeviceCodeForUpdate("LED" + command.deviceId()).stream().toList();
 		if (devices.size() != (command.deviceId() == 0 ? 3 : 1)) throw new BusinessException(DomainCode.DEVICE_NOT_CONFIGURED);
+		if (devices.stream().anyMatch(device -> !device.isOnline())) throw new BusinessException(DomainCode.DEVICE_OFFLINE);
 		if (devices.stream().anyMatch(device -> device.getCurrentStatus() == DeviceStatus.LOADING)) throw new BusinessException(DomainCode.DEVICE_BUSY);
 		User user = actor == null ? null : userRepository.findById(actor.id())
 				.orElseThrow(() -> new BusinessException(DomainCode.USER_NOT_FOUND));
@@ -220,5 +285,7 @@ public class DeviceServiceImpl implements DeviceService {
 		return template;
 	}
 	private record ParsedCommand(int deviceId, DeviceAction action) { }
-	private record CommandMutation(List<ActionLogDTO> logs, List<DeviceDTO> devices) { }
+	private record CommandMutation(List<ActionLogDTO> logs, List<DeviceDTO> devices, boolean restore) {
+		private CommandMutation(List<ActionLogDTO> logs, List<DeviceDTO> devices) { this(logs, devices, false); }
+	}
 }

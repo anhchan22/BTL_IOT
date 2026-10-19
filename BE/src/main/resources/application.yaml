@@ -41,4 +41,5 @@ app:
     topic-sensors: ${MQTT_TOPIC_SENSORS:data_sensors}
     topic-device-control: ${MQTT_TOPIC_DEVICE_CONTROL:device_control}
     topic-device-response: ${MQTT_TOPIC_DEVICE_RESPONSE:device_response}
+    topic-device-availability: ${MQTT_TOPIC_DEVICE_AVAILABILITY:device_availability}
     command-timeout-ms: ${MQTT_COMMAND_TIMEOUT_MS:10000}

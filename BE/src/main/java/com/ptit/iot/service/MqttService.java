@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,6 +46,8 @@ public class MqttService {
 	private final String sensorTopic;
 	private final String deviceControlTopic;
 	private final String deviceResponseTopic;
+	private final String deviceAvailabilityTopic;
+	private final long deviceOfflineTimeoutMs;
 	private final SensorIngestionService ingestionService;
 	private final ObjectProvider<DeviceService> deviceServiceProvider;
 	private final SimpMessagingTemplate messagingTemplate;
@@ -60,6 +64,8 @@ public class MqttService {
 	});
 
 	private volatile MqttClient client;
+	private final AtomicLong lastDeviceHeartbeatAt = new AtomicLong();
+	private final AtomicBoolean deviceMarkedOnline = new AtomicBoolean();
 
 	public MqttService(
 			@Value("${app.mqtt.broker-url}") String brokerUrl,
@@ -69,6 +75,8 @@ public class MqttService {
 			@Value("${app.mqtt.topic-sensors}") String sensorTopic,
 			@Value("${app.mqtt.topic-device-control}") String deviceControlTopic,
 			@Value("${app.mqtt.topic-device-response}") String deviceResponseTopic,
+			@Value("${app.mqtt.topic-device-availability}") String deviceAvailabilityTopic,
+			@Value("${app.mqtt.device-offline-timeout-ms:15000}") long deviceOfflineTimeoutMs,
 			SensorIngestionService ingestionService,
 			ObjectProvider<DeviceService> deviceServiceProvider,
 			SimpMessagingTemplate messagingTemplate,
@@ -80,6 +88,8 @@ public class MqttService {
 		this.sensorTopic = sensorTopic;
 		this.deviceControlTopic = deviceControlTopic;
 		this.deviceResponseTopic = deviceResponseTopic;
+		this.deviceAvailabilityTopic = deviceAvailabilityTopic;
+		this.deviceOfflineTimeoutMs = deviceOfflineTimeoutMs;
 		this.ingestionService = ingestionService;
 		this.deviceServiceProvider = deviceServiceProvider;
 		this.messagingTemplate = messagingTemplate;
@@ -92,6 +102,7 @@ public class MqttService {
 		timeoutExecutor.scheduleWithFixedDelay(() -> {
 			try {
 				deviceServiceProvider.getObject().expireTimedOutCommands();
+				expireDeviceHeartbeat();
 			} catch (Exception exception) {
 				log.error("Could not expire timed-out device commands", exception);
 			}
@@ -150,6 +161,8 @@ public class MqttService {
 			log.info("Subscribed to MQTT sensor topic {} (QoS {})", sensorTopic, SENSOR_QOS);
 			activeClient.subscribe(deviceResponseTopic, SENSOR_QOS);
 			log.info("Subscribed to MQTT device response topic {} (QoS {})", deviceResponseTopic, SENSOR_QOS);
+			activeClient.subscribe(deviceAvailabilityTopic, 1);
+			log.info("Subscribed to MQTT device availability topic {} (QoS 1)", deviceAvailabilityTopic);
 		} catch (MqttException exception) {
 			log.error("Failed to subscribe to MQTT sensor topic {}", sensorTopic, exception);
 		}
@@ -161,6 +174,14 @@ public class MqttService {
 	}
 
 	public void publishDeviceControl(int deviceId, DeviceAction action) {
+		publishDeviceCommand(deviceId, action, false);
+	}
+
+	public void publishDeviceRestore(int deviceId, DeviceAction action) {
+		publishDeviceCommand(deviceId, action, true);
+	}
+
+	private void publishDeviceCommand(int deviceId, DeviceAction action, boolean restore) {
 		MqttClient activeClient = client;
 		if (activeClient == null || !activeClient.isConnected()) {
 			throw new IllegalStateException("MQTT broker is not connected");
@@ -169,16 +190,21 @@ public class MqttService {
 			var payload = objectMapper.createObjectNode();
 			payload.put("deviceId", deviceId);
 			payload.put("action", action.name().toLowerCase(java.util.Locale.ROOT));
+			if (restore) payload.put("restore", true);
 			MqttMessage message = new MqttMessage(objectMapper.writeValueAsBytes(payload));
-			message.setQos(SENSOR_QOS);
+			message.setQos(1);
 			activeClient.publish(deviceControlTopic, message);
-			log.info("Published device control to {}: deviceId={}, action={}", deviceControlTopic, deviceId, action);
+			log.info("Published device {} to {}: deviceId={}, action={}", restore ? "restore" : "control", deviceControlTopic, deviceId, action);
 		} catch (MqttException | tools.jackson.core.JacksonException exception) {
 			throw new IllegalStateException("Could not publish MQTT device command", exception);
 		}
 	}
 
 	private void handleMessage(String topic, MqttMessage message) {
+		if (deviceAvailabilityTopic.equals(topic)) {
+			handleDeviceAvailability(message);
+			return;
+		}
 		if (deviceResponseTopic.equals(topic)) {
 			handleDeviceResponse(message);
 			return;
@@ -194,6 +220,7 @@ public class MqttService {
 			BigDecimal humidity = number(root, "do_am", "humidity");
 			BigDecimal light = number(root, "anh_sang", "light");
 			SensorSnapshotEvent event = ingestionService.recordSnapshot(temperature, humidity, light);
+			noteDeviceHeartbeat();
 			log.debug("Saved sensor snapshot at {}", event.time());
 		} catch (Exception exception) {
 			log.warn("Discarding invalid MQTT sensor message on {}: {}", topic, exception.getMessage());
@@ -209,9 +236,49 @@ public class MqttService {
 			}
 			String action = root.path("action").asString(null);
 			String status = root.path("status").asString(null);
-			deviceServiceProvider.getObject().handleDeviceAck(root.get("deviceId").intValue(), action, status);
+			int deviceId = root.get("deviceId").intValue();
+			if (root.path("restore").asBoolean(false)) {
+				deviceServiceProvider.getObject().handleDeviceRestoreAck(deviceId, action, status);
+			} else {
+				deviceServiceProvider.getObject().handleDeviceAck(deviceId, action, status);
+			}
 		} catch (Exception exception) {
 			log.warn("Discarding invalid MQTT device response: {} ({})", payload, exception.getMessage());
+		}
+	}
+
+	private void handleDeviceAvailability(MqttMessage message) {
+		String payload = new String(message.getPayload(), StandardCharsets.UTF_8);
+		try {
+			JsonNode root = objectMapper.readTree(payload);
+			String status = root.path("status").asString("");
+			if (!status.equalsIgnoreCase("online") && !status.equalsIgnoreCase("offline")) {
+				throw new IllegalArgumentException("Unknown availability status");
+			}
+			boolean online = status.equalsIgnoreCase("online");
+			deviceMarkedOnline.set(online);
+			lastDeviceHeartbeatAt.set(online ? System.currentTimeMillis() : 0);
+			deviceServiceProvider.getObject().handleDeviceAvailability(status);
+		} catch (Exception exception) {
+			log.warn("Discarding invalid MQTT device availability message: {} ({})", payload, exception.getMessage());
+		}
+	}
+
+	private void noteDeviceHeartbeat() {
+		lastDeviceHeartbeatAt.set(System.currentTimeMillis());
+		if (deviceMarkedOnline.compareAndSet(false, true)) {
+			log.info("Received live sensor data; marking ESP online");
+			deviceServiceProvider.getObject().handleDeviceAvailability("online");
+		}
+	}
+
+	private void expireDeviceHeartbeat() {
+		long lastHeartbeat = lastDeviceHeartbeatAt.get();
+		if (lastHeartbeat == 0 || System.currentTimeMillis() - lastHeartbeat <= deviceOfflineTimeoutMs) return;
+		if (lastDeviceHeartbeatAt.compareAndSet(lastHeartbeat, 0)) {
+			deviceMarkedOnline.set(false);
+			log.warn("No ESP availability or sensor heartbeat for {} ms; marking ESP offline", deviceOfflineTimeoutMs);
+			deviceServiceProvider.getObject().handleDeviceAvailability("offline");
 		}
 	}
 

@@ -21,6 +21,7 @@ const int mqtt_port = 2205;
 const char* topic_sensor  = "data_sensors";
 const char* topic_control = "device_control";
 const char* topic_status  = "device_response";
+const char* topic_availability = "device_availability";
 #define DHTPIN D5        // GPIO14; keep boot-strap GPIO15 (D8) free during reset.
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
@@ -58,7 +59,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("]: ");
   String messageTemp;
-  for (int i = 0; i < length; i++) {
+  for (unsigned int i = 0; i < length; i++) {
     messageTemp += (char)payload[i];
   }
   Serial.println(messageTemp);
@@ -71,6 +72,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   const int device_id = doc["deviceId"] | -1;
   const char* action = doc["action"];
+  const bool isRestore = doc["restore"] | false;
   if (action == nullptr) {
     Serial.println("Loi: thieu truong action trong lenh MQTT.");
     return;
@@ -93,6 +95,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     responseDoc["deviceId"] = device_id;
     responseDoc["action"] = strAction;
     responseDoc["status"] = "success";
+    if (isRestore) responseDoc["restore"] = true;
    
     char responseBuffer[200];
     serializeJson(responseDoc, responseBuffer);
@@ -109,10 +112,14 @@ void reconnect() {
     String clientId = "ESP8266Client-";
     clientId += String(random(0, 0xffff), HEX);
 
-    if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
+    const char* offlinePayload = "{\"status\":\"offline\"}";
+    if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass,
+                       topic_availability, 1, true, offlinePayload)) {
       Serial.println("Đã kết nối MQTT thành công!");
-      client.subscribe(topic_control);
+      client.subscribe(topic_control, 1);
       Serial.println("Đã Subscribe topic: " + String(topic_control));
+      client.publish(topic_availability, "{\"status\":\"online\"}", true);
+      Serial.println("Đã thông báo ESP online; khôi phục trạng thái LED đã lưu.");
     } else {
       Serial.print("Thất bại, mã lỗi (rc)=");
       Serial.print(client.state());
@@ -131,14 +138,18 @@ void setup() {
   digitalWrite(LED3_PIN, LOW);
 
   dht.begin();
+  WiFi.setAutoReconnect(true);
   Wire.begin(LIGHT_SDA_PIN, LIGHT_SCL_PIN);
   lightSensorReady = lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
   if (!lightSensorReady) {
     Serial.println("BH1750 chua duoc phat hien; se thu ket noi lai.");
   }
   setup_wifi();
+  randomSeed(ESP.getCycleCount());
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
+  client.setKeepAlive(10);
+  client.setSocketTimeout(3);
 }
 void loop() {
   if (!client.connected()) {

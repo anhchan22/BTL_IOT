@@ -46,6 +46,9 @@ public class Device {
 	@Column(name = "last_confirmed_status", nullable = false, length = 10)
 	private DeviceStatus lastConfirmedStatus = DeviceStatus.OFF;
 
+	@Column(name = "is_online", nullable = false)
+	private boolean online;
+
 	@Column(name = "last_changed_at")
 	private LocalDateTime lastChangedAt;
 

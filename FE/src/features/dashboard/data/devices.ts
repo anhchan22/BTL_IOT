@@ -4,6 +4,7 @@ export type ClassroomDevice = {
   id: string
   name: string
   status: DeviceStatus
+  online?: boolean
 }
 
 export const devices: ClassroomDevice[] = [

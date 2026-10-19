@@ -21,6 +21,7 @@ public enum DomainCode {
 	INVALID_DEVICE_COMMAND("IOT-400", HttpStatus.BAD_REQUEST, "Lệnh không hợp lệ: {}"),
 	DEVICE_NOT_CONFIGURED("IOT-500", HttpStatus.INTERNAL_SERVER_ERROR, "Thiếu cấu hình thiết bị LED"),
 	DEVICE_BUSY("IOT-409", HttpStatus.CONFLICT, "Thiết bị đang chờ xác nhận lệnh trước đó"),
+	DEVICE_OFFLINE("IOT-503", HttpStatus.SERVICE_UNAVAILABLE, "Thiết bị đang ngoại tuyến, không thể điều khiển"),
 	SENSOR_NOT_CONFIGURED("IOT-500", HttpStatus.INTERNAL_SERVER_ERROR, "Chưa cấu hình cảm biến {}"),
 	INVALID_REQUEST("IOT-400", HttpStatus.BAD_REQUEST, "Dữ liệu đầu vào không hợp lệ"),
 	CONFLICT("IOT-409", HttpStatus.CONFLICT, "Dữ liệu đã tồn tại hoặc vi phạm ràng buộc"),

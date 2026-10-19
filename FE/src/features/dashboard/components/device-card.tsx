@@ -17,6 +17,7 @@ type DeviceCardProps = {
 export function DeviceCard({ device, onToggle }: DeviceCardProps) {
   const isLoading = device.status === 'LOADING'
   const isOn = device.status === 'ON'
+  const isOffline = device.online === false
 
   return (
     <Card className='min-h-24 justify-center gap-3 p-3'>
@@ -25,6 +26,7 @@ export function DeviceCard({ device, onToggle }: DeviceCardProps) {
         <CardTitle className='truncate text-base font-semibold'>
           {device.name}
         </CardTitle>
+        {isOffline && <Badge variant='destructive' className='ml-auto'>Ngoại tuyến</Badge>}
       </CardHeader>
       <CardContent className='flex flex-col items-center gap-2 p-0 sm:flex-row sm:justify-between'>
         <Badge variant={isOn ? 'default' : isLoading ? 'outline' : 'secondary'}>
@@ -39,7 +41,7 @@ export function DeviceCard({ device, onToggle }: DeviceCardProps) {
         </Badge>
         <Switch
           checked={isOn}
-          disabled={isLoading}
+          disabled={isLoading || isOffline}
           onCheckedChange={(checked) => onToggle(device.id, checked)}
           aria-label={`Điều khiển ${device.name}`}
         />
