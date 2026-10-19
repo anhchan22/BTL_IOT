@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Thermometer } from 'lucide-react'
 import {
   Sidebar,
@@ -10,10 +11,15 @@ import {
 import { sidebarData } from './data/sidebar-data'
 import { NavGroup } from './nav-group'
 import { NavUser } from './nav-user'
-import { getStoredUser } from '@/lib/api'
+import { getStoredUser, resolveAvatarUrl } from '@/lib/api'
 
 export function AppSidebar() {
-  const storedUser = getStoredUser()
+  const [storedUser, setStoredUser] = useState(getStoredUser)
+  useEffect(() => {
+    const refreshUser = () => setStoredUser(getStoredUser())
+    window.addEventListener('iot-user-updated', refreshUser)
+    return () => window.removeEventListener('iot-user-updated', refreshUser)
+  }, [])
   return (
     <Sidebar collapsible='icon' variant='sidebar'>
       <SidebarHeader>
@@ -33,7 +39,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={{ name: storedUser?.fullName || sidebarData.user.name, email: storedUser?.email || storedUser?.username || sidebarData.user.email, avatar: storedUser?.avatarUrl || sidebarData.user.avatar }} />
+        <NavUser user={{ name: storedUser?.fullName || sidebarData.user.name, email: storedUser?.email || storedUser?.username || sidebarData.user.email, avatar: resolveAvatarUrl(storedUser?.avatarUrl) || sidebarData.user.avatar }} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

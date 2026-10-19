@@ -1,6 +1,8 @@
 import axios from 'axios'
 
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '')
+export const resolveAvatarUrl = (value: string | null | undefined) =>
+  value?.startsWith('/') ? `${apiBaseUrl}${value}` : value || undefined
 export const api = axios.create({ baseURL: apiBaseUrl, timeout: 15000 })
 const TOKEN_KEY = 'iot_access_token'
 const USER_KEY = 'iot_user_data'
@@ -27,7 +29,10 @@ export function saveSession(login: LoginResponse) {
   sessionStorage.setItem(TOKEN_KEY, login.accessToken)
   sessionStorage.setItem(USER_KEY, JSON.stringify(login.userData))
 }
-export function saveUser(user: UserData) { sessionStorage.setItem(USER_KEY, JSON.stringify(user)) }
+export function saveUser(user: UserData) {
+  sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+  window.dispatchEvent(new Event('iot-user-updated'))
+}
 export function clearSession() { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(USER_KEY) }
 
 api.interceptors.request.use((config) => {
@@ -50,6 +55,11 @@ export const endpoints = {
   login: async (username: string, password: string) => unwrap(await api.post<ApiResponse<LoginResponse>>('/api/auth/login', { username, password })),
   profile: async (username: string) => unwrap(await api.get<ApiResponse<UserData>>(`/api/auth/profile/${encodeURIComponent(username)}`)),
   updateProfile: async (id: number, body: Omit<UserData, 'id' | 'username'>) => unwrap(await api.put<ApiResponse<UserData>>(`/api/auth/profile/${id}`, body)),
+  uploadAvatar: async (id: number, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    return unwrap(await api.post<ApiResponse<UserData>>(`/api/auth/profile/${id}/avatar`, body))
+  },
   latest: async () => unwrap(await api.get<ApiResponse<LatestSensor>>('/api/sensor/latest')),
   chart: async (minutes = 60) => unwrap(await api.get<ApiResponse<SensorPoint[]>>('/api/sensor/chart', { params: { minutes } })),
   sensors: async (params: Record<string, string | number | undefined>) => unwrap(await api.get<ApiResponse<Page<SensorRecord>>>('/api/sensor', { params })),

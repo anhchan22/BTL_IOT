@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 
 public enum DomainCode {
 	INVALID_CREDENTIALS("IOT-401", HttpStatus.UNAUTHORIZED, "Sai tên đăng nhập hoặc mật khẩu"),
+	INVALID_AVATAR("IOT-400", HttpStatus.BAD_REQUEST, "Ảnh đại diện phải là PNG/JPG, tối đa 20 MB và không quá 10000 × 10000 px"),
 	FORBIDDEN("IOT-403", HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này"),
 	USER_NOT_FOUND("IOT-404", HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"),
 	INVALID_PAGE("IOT-400", HttpStatus.BAD_REQUEST, "page phải lớn hơn hoặc bằng 1"),

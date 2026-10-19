@@ -1,8 +1,9 @@
-import { useEffect, useState, type ElementType, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type ElementType, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   ExternalLink,
+  Camera,
   FileText,
   GraduationCap,
   IdCard,
@@ -27,7 +28,7 @@ import {
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { endpoints, getStoredUser, saveUser, type UserData } from '@/lib/api'
+import { endpoints, getStoredUser, resolveAvatarUrl, saveUser, type UserData } from '@/lib/api'
 
 type Form = Omit<UserData, 'id' | 'username'>
 type ResourceKey = 'githubUrl' | 'figmaUrl' | 'postmanUrl' | 'reportUrl'
@@ -85,6 +86,8 @@ export function Profile() {
   })
   const [form, setForm] = useState<Form>(empty)
   const [editOpen, setEditOpen] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const avatarInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (profile.data) setForm(toForm(profile.data))
@@ -102,6 +105,26 @@ export function Profile() {
     onError: () => toast.error('Không lưu được hồ sơ. Kiểm tra lại thông tin.'),
   })
 
+  const avatarMutation = useMutation({
+    mutationFn: (file: File) => endpoints.uploadAvatar(profile.data!.id, file),
+    onSuccess: async data => {
+      setForm(current => ({ ...current, avatarUrl: data.avatarUrl ?? '' }))
+      setAvatarPreview(null)
+      saveUser(data)
+      qc.setQueryData(['iot', 'profile', user?.username], data)
+      toast.success('Đã cập nhật ảnh đại diện')
+    },
+    onError: (error: unknown) => {
+      setAvatarPreview(null)
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(message || 'Không tải được ảnh. Kiểm tra backend; ảnh PNG/JPG tối đa 20 MB.')
+    },
+  })
+
+  useEffect(() => () => {
+    if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview)
+  }, [avatarPreview])
+
   const set = (key: keyof Form, value: string) => setForm(current => ({ ...current, [key]: value }))
   const restoreSavedProfile = () => {
     if (profile.data) setForm(toForm(profile.data))
@@ -111,6 +134,18 @@ export function Profile() {
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     mutation.mutate(form)
+  }
+
+  const chooseAvatar = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]
+    event.currentTarget.value = ''
+    if (!file) return
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 20 * 1024 * 1024) {
+      toast.error('Chọn ảnh PNG hoặc JPG có dung lượng tối đa 20 MB.')
+      return
+    }
+    setAvatarPreview(URL.createObjectURL(file))
+    avatarMutation.mutate(file)
   }
 
   const currentName = form.fullName || profile.data?.username || 'Người dùng'
@@ -136,9 +171,13 @@ export function Profile() {
               </div>
               <div className='px-6 pb-6'>
                 <div className='-mt-20 flex justify-center'>
-                  <div className='relative flex size-36 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-primary text-3xl font-semibold text-primary-foreground shadow-md'>
+                  <div className='relative flex size-36 items-center justify-center overflow-visible rounded-full border-4 border-background bg-primary text-3xl font-semibold text-primary-foreground shadow-md'>
                     <span>{initials(currentName)}</span>
-                    {form.avatarUrl && <img src={form.avatarUrl} alt={`Ảnh đại diện ${currentName}`} className='absolute inset-0 size-full object-cover' onError={event => { event.currentTarget.style.display = 'none' }} />}
+                    {(avatarPreview || form.avatarUrl) && <img key={avatarPreview ?? form.avatarUrl} src={avatarPreview ?? resolveAvatarUrl(form.avatarUrl)} alt={`Ảnh đại diện ${currentName}`} className='absolute inset-0 size-full rounded-full object-cover' onError={event => { event.currentTarget.style.display = 'none' }} />}
+                    <button type='button' className='absolute bottom-0 right-0 z-10 flex size-10 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow hover:bg-primary/90 disabled:cursor-wait disabled:opacity-70' onClick={() => avatarInput.current?.click()} disabled={avatarMutation.isPending} aria-label='Thay đổi ảnh đại diện' title={avatarMutation.isPending ? 'Đang tải ảnh…' : 'Thay đổi ảnh đại diện'}>
+                      <Camera className='size-4' />
+                    </button>
+                    <input ref={avatarInput} type='file' accept='image/png,image/jpeg' className='hidden' onChange={chooseAvatar} />
                   </div>
                 </div>
                 <div className='mt-4 text-center'>
@@ -201,7 +240,7 @@ export function Profile() {
               <Label htmlFor={`profile-${key}`}>{label}</Label>
               <Input
                 id={`profile-${key}`}
-                type={key === 'email' ? 'email' : key === 'avatarUrl' ? 'url' : 'text'}
+                type={key === 'email' ? 'email' : 'text'}
                 required={key === 'fullName'}
                 value={form[key] ?? ''}
                 onChange={event => set(key, event.target.value)}

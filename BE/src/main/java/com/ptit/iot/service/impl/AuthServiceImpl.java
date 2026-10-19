@@ -12,10 +12,12 @@ import com.ptit.iot.repository.UserRepository;
 import com.ptit.iot.security.AuthenticatedUser;
 import com.ptit.iot.service.AuthService;
 import com.ptit.iot.service.JwtService;
+import com.ptit.iot.service.AvatarStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ public class AuthServiceImpl implements AuthService {
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final IoTMapper mapper;
+	private final AvatarStorageService avatarStorageService;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -58,6 +61,15 @@ public class AuthServiceImpl implements AuthService {
 		user.setFigmaUrl(clean(request.figmaUrl()));
 		user.setPostmanUrl(clean(request.postmanUrl()));
 		user.setReportUrl(clean(request.reportUrl()));
+		return mapper.toUserData(userRepository.save(user));
+	}
+
+	@Override
+	@Transactional
+	public UserData uploadAvatar(Long id, MultipartFile file, AuthenticatedUser principal) {
+		if (principal == null || !principal.id().equals(id)) throw new BusinessException(DomainCode.FORBIDDEN);
+		User user = userRepository.findById(id).orElseThrow(() -> new BusinessException(DomainCode.USER_NOT_FOUND));
+		user.setAvatarUrl(avatarStorageService.save(file));
 		return mapper.toUserData(userRepository.save(user));
 	}
 

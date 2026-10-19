@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "Authentication and profile")
 @RequestMapping("/api/auth")
@@ -28,5 +30,10 @@ public interface AuthApi {
 	@SecurityRequirement(name = "bearerAuth")
 	@PutMapping("/profile/{id}")
 	ApiResponse<UserData> updateProfile(@PathVariable Long id, @Valid @RequestBody ProfileUpdateRequest request,
+			@AuthenticationPrincipal AuthenticatedUser principal);
+	@Operation(summary = "Tải ảnh đại diện")
+	@SecurityRequirement(name = "bearerAuth")
+	@PostMapping(value = "/profile/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	ApiResponse<UserData> uploadAvatar(@PathVariable Long id, @RequestPart("file") MultipartFile file,
 			@AuthenticationPrincipal AuthenticatedUser principal);
 }

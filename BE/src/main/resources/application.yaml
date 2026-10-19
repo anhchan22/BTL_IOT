@@ -1,6 +1,10 @@
 spring:
   application:
     name: classroom-iot-be
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/classroom_iot?allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:classroom_iot_app}
@@ -43,3 +47,5 @@ app:
     topic-device-response: ${MQTT_TOPIC_DEVICE_RESPONSE:device_response}
     topic-device-availability: ${MQTT_TOPIC_DEVICE_AVAILABILITY:device_availability}
     command-timeout-ms: ${MQTT_COMMAND_TIMEOUT_MS:10000}
+  storage:
+    avatar-directory: ${AVATAR_UPLOAD_DIR:uploads/avatars}

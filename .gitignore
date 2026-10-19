@@ -7,4 +7,5 @@
 **/.git/
 **/.env
 HW/secrets.h
+**/uploads/avatars/
 FE/.git-original-backup/

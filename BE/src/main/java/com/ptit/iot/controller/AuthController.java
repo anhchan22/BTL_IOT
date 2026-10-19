@@ -15,6 +15,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -36,5 +38,11 @@ public class AuthController implements AuthApi {
 	public ApiResponse<UserData> updateProfile(@PathVariable Long id, @Valid @RequestBody ProfileUpdateRequest request,
 			@AuthenticationPrincipal AuthenticatedUser principal) {
 		return responseFactory.success(authService.updateProfile(id, request, principal));
+	}
+
+	@Override
+	public ApiResponse<UserData> uploadAvatar(@PathVariable Long id, @RequestPart("file") MultipartFile file,
+			@AuthenticationPrincipal AuthenticatedUser principal) {
+		return responseFactory.success(authService.uploadAvatar(id, file, principal));
 	}
 }
