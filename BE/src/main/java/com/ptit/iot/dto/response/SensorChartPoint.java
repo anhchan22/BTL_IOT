@@ -10,13 +10,14 @@ public record SensorChartPoint(
 		BigDecimal temperature,
 		BigDecimal humidity,
 		BigDecimal light,
+		BigDecimal rain,
 		OffsetDateTime time) {
 
 	private static final ZoneId CLASSROOM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
 	public static SensorChartPoint from(LocalDateTime time, BigDecimal temperature,
-			BigDecimal humidity, BigDecimal light) {
+			BigDecimal humidity, BigDecimal light, BigDecimal rain) {
 		long id = time.atZone(CLASSROOM_ZONE).toInstant().toEpochMilli();
-		return new SensorChartPoint(id, temperature, humidity, light, time.atZone(CLASSROOM_ZONE).toOffsetDateTime());
+		return new SensorChartPoint(id, temperature, humidity, light, rain, time.atZone(CLASSROOM_ZONE).toOffsetDateTime());
 	}
 }

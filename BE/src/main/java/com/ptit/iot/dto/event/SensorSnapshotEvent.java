@@ -10,6 +10,7 @@ public record SensorSnapshotEvent(
 		BigDecimal temperature,
 		BigDecimal humidity,
 		BigDecimal light,
+		BigDecimal rain,
 		String time,
 		Map<String, SensorReadingStatus> statuses) {
 }

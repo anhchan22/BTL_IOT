@@ -6,5 +6,6 @@ public record SensorLatestResponse(
 		SensorValueResponse temperature,
 		SensorValueResponse humidity,
 		SensorValueResponse light,
+		SensorValueResponse rain,
 		OffsetDateTime lastUpdatedAt) {
 }

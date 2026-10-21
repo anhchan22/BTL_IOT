@@ -123,6 +123,7 @@ void reconnect() {
 }
 void setup() {
   Serial.begin(115200);
+  randomSeed(ESP.getChipId() ^ micros());
   pinMode(LED1_PIN, OUTPUT);
   pinMode(LED2_PIN, OUTPUT);
   pinMode(LED3_PIN, OUTPUT);
@@ -157,6 +158,7 @@ void loop() {
     }
     float lux = lightSensorReady ? lightMeter.readLightLevel() : 0.0;
     if (!isfinite(lux) || lux < 0.0) lux = 0.0;
+    const int rain = random(0, 101); // Simulated rainfall percentage (0-100%).
 
     if (isnan(h) || isnan(t)) {
       Serial.println("Lỗi: Không thể đọc dữ liệu từ cảm biến DHT!");
@@ -165,12 +167,14 @@ void loop() {
 
     Serial.print("Nhiệt độ: "); Serial.print(t);
     Serial.print("°C | Độ ẩm: "); Serial.print(h);
-    Serial.print("% | Ánh sáng: "); Serial.print(lux, 1); Serial.println(" Lux");
+    Serial.print("% | Ánh sáng: "); Serial.print(lux, 1);
+    Serial.print(" Lux | Độ mưa: "); Serial.print(rain); Serial.println("%");
 
     StaticJsonDocument<200> doc;
     doc["temperature"] = t;
     doc["humidity"] = h;
     doc["light"] = round(lux * 10) / 10.0;
+    doc["rain"] = rain;
 
     char msgBuffer[200];
     serializeJson(doc, msgBuffer);

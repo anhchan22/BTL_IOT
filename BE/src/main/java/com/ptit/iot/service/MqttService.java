@@ -193,7 +193,10 @@ public class MqttService {
 			BigDecimal temperature = number(root, "nhiet_do", "temperature");
 			BigDecimal humidity = number(root, "do_am", "humidity");
 			BigDecimal light = number(root, "anh_sang", "light");
-			SensorSnapshotEvent event = ingestionService.recordSnapshot(temperature, humidity, light);
+			BigDecimal rain = root.has("rain") || root.has("rainfall")
+					? number(root, "rain", "rainfall")
+					: BigDecimal.ZERO;
+			SensorSnapshotEvent event = ingestionService.recordSnapshot(temperature, humidity, light, rain);
 			log.debug("Saved sensor snapshot at {}", event.time());
 		} catch (Exception exception) {
 			log.warn("Discarding invalid MQTT sensor message on {}: {}", topic, exception.getMessage());

@@ -31,12 +31,13 @@ public class SensorIngestionServiceImpl implements SensorIngestionService {
 
 	@Override
 	@Transactional
-	public SensorSnapshotEvent recordSnapshot(BigDecimal temperature, BigDecimal humidity, BigDecimal light) {
+	public SensorSnapshotEvent recordSnapshot(BigDecimal temperature, BigDecimal humidity, BigDecimal light, BigDecimal rain) {
 		LocalDateTime recordedAt = LocalDateTime.now(CLASSROOM_ZONE);
 		Map<String, BigDecimal> values = new LinkedHashMap<>();
 		values.put("temperature", normalize(temperature));
 		values.put("humidity", normalize(humidity));
 		values.put("light", normalize(light));
+		values.put("rain", normalize(rain));
 		Map<String, SensorReadingStatus> statuses = new LinkedHashMap<>();
 		for (var reading : values.entrySet()) {
 			Sensor sensor = sensorRepository.findBySensorKey(reading.getKey())
@@ -50,7 +51,7 @@ public class SensorIngestionServiceImpl implements SensorIngestionService {
 		}
 		long eventId = recordedAt.atZone(CLASSROOM_ZONE).toInstant().toEpochMilli();
 		SensorSnapshotEvent event = new SensorSnapshotEvent(eventId, values.get("temperature"), values.get("humidity"),
-				values.get("light"), recordedAt.atZone(CLASSROOM_ZONE).toOffsetDateTime().toString(), Map.copyOf(statuses));
+				values.get("light"), values.get("rain"), recordedAt.atZone(CLASSROOM_ZONE).toOffsetDateTime().toString(), Map.copyOf(statuses));
 		eventPublisher.publishEvent(event);
 		return event;
 	}

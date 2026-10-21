@@ -12,8 +12,8 @@ export type UserData = {
 }
 export type LoginResponse = { accessToken: string; tokenType: string; expiresIn: number; userData: UserData }
 export type SensorValue = { value: number; unit: string; status: string; recordedAt: string }
-export type LatestSensor = { temperature: SensorValue | null; humidity: SensorValue | null; light: SensorValue | null; lastUpdatedAt: string | null }
-export type SensorPoint = { id: number; temperature: number; humidity: number; light: number; time: string }
+export type LatestSensor = { temperature: SensorValue | null; humidity: SensorValue | null; light: SensorValue | null; rain: SensorValue | null; lastUpdatedAt: string | null }
+export type SensorPoint = { id: number; temperature: number | null; humidity: number | null; light: number | null; rain: number | null; time: string }
 export type SensorRecord = { id: number; sensorCode: string; sensorName: string; value: number; unit: string; status: string; recordedAt: string }
 export type Device = { id: number; deviceCode: string; name: string; location: string | null; description: string | null; status: 'ON' | 'OFF' | 'LOADING'; lastConfirmedStatus: 'ON' | 'OFF'; lastChangedAt: string | null }
 export type HistoryRecord = { id: number; device: string; action: 'ON' | 'OFF'; performedBy: string | null; responseTimeSeconds: number | null; status: 'SUCCESS' | 'FAILED' | 'LOADING'; time: string; errorMessage?: string | null }

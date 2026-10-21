@@ -42,9 +42,10 @@ public class SensorServiceImpl implements SensorService {
 		Optional<DataSensor> temperature = latest("temperature");
 		Optional<DataSensor> humidity = latest("humidity");
 		Optional<DataSensor> light = latest("light");
-		LocalDateTime lastUpdated = List.of(temperature, humidity, light).stream().flatMap(Optional::stream)
+		Optional<DataSensor> rain = latest("rain");
+		LocalDateTime lastUpdated = List.of(temperature, humidity, light, rain).stream().flatMap(Optional::stream)
 				.map(DataSensor::getRecordedAt).max(LocalDateTime::compareTo).orElse(null);
-		return new SensorLatestResponse(toValue(temperature), toValue(humidity), toValue(light), toOffset(lastUpdated));
+		return new SensorLatestResponse(toValue(temperature), toValue(humidity), toValue(light), toValue(rain), toOffset(lastUpdated));
 	}
 
 	@Override
@@ -122,6 +123,7 @@ public class SensorServiceImpl implements SensorService {
 			case "temperature", "temp" -> "temperature";
 			case "humidity", "humid" -> "humidity";
 			case "light", "lux" -> "light";
+			case "rain", "rainfall" -> "rain";
 			default -> throw new BusinessException(DomainCode.INVALID_SENSOR_CODE);
 		};
 	}

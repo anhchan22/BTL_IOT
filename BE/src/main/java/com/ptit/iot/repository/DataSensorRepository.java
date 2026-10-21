@@ -18,7 +18,8 @@ public interface DataSensorRepository extends JpaRepository<DataSensor, Long> {
 				reading.recordedAt,
 				MAX(CASE WHEN sensor.sensorKey = 'temperature' THEN reading.value ELSE NULL END),
 				MAX(CASE WHEN sensor.sensorKey = 'humidity' THEN reading.value ELSE NULL END),
-				MAX(CASE WHEN sensor.sensorKey = 'light' THEN reading.value ELSE NULL END))
+				MAX(CASE WHEN sensor.sensorKey = 'light' THEN reading.value ELSE NULL END),
+				MAX(CASE WHEN sensor.sensorKey = 'rain' THEN reading.value ELSE NULL END))
 			FROM DataSensor reading
 			JOIN reading.sensor sensor
 			WHERE reading.recordedAt >= :fromTime

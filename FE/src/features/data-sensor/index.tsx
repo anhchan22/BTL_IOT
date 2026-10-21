@@ -22,7 +22,7 @@ import { Main } from '@/components/layout/main'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { endpoints, type SensorRecord } from '@/lib/api'
 
-type SearchField = 'all' | 'humidity' | 'light' | 'temperature' | 'time'
+type SearchField = 'all' | 'humidity' | 'light' | 'temperature' | 'rain' | 'time'
 type SortField = 'value' | 'unit' | 'time'
 type SortState = { field: SortField; direction: 'asc' | 'desc' }
 type SensorFilters = { sensor: string; value: string; from: string; to: string }
@@ -31,6 +31,7 @@ const labels: Record<string, string> = {
   temperature: 'Nhiệt độ',
   humidity: 'Độ ẩm',
   light: 'Ánh sáng',
+  rain: 'Độ mưa',
 }
 
 const timeParts = (value: string) => {
@@ -205,6 +206,7 @@ export function DataSensor() {
               <option value='all'>Tất cả</option>
               <option value='humidity'>Độ ẩm</option>
               <option value='light'>Ánh sáng</option>
+              <option value='rain'>Độ mưa</option>
               <option value='temperature'>Nhiệt độ</option>
               <option value='time'>Thời gian</option>
             </select>

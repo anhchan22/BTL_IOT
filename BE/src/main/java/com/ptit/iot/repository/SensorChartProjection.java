@@ -7,5 +7,6 @@ public record SensorChartProjection(
 		LocalDateTime recordedAt,
 		BigDecimal temperature,
 		BigDecimal humidity,
-		BigDecimal light) {
+		BigDecimal light,
+		BigDecimal rain) {
 }

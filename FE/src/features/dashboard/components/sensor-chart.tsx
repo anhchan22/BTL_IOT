@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { type SensorPoint } from '../data/sensor-series'
+import { type SensorPoint } from '@/lib/api'
 
 type SensorChartProps = {
   data: SensorPoint[]
@@ -55,14 +55,16 @@ export function SensorChart({ data, height = 260 }: SensorChartProps) {
           formatter={(value, name) => [
             name === 'temperature'
               ? `${value} °C`
-              : name === 'humidity'
+              : name === 'humidity' || name === 'rain'
                 ? `${value}%`
                 : `${value} lux`,
             name === 'temperature'
               ? 'Nhiệt độ'
               : name === 'humidity'
                 ? 'Độ ẩm'
-                : 'Ánh sáng',
+                : name === 'rain'
+                  ? 'Độ mưa'
+                  : 'Ánh sáng',
           ]}
         />
         <Line
@@ -82,6 +84,15 @@ export function SensorChart({ data, height = 260 }: SensorChartProps) {
           strokeWidth={2}
           dot={false}
           className='text-red-500'
+        />
+        <Line
+          yAxisId='temperature'
+          type='monotone'
+          dataKey='rain'
+          stroke='currentColor'
+          strokeWidth={2}
+          dot={false}
+          className='text-sky-500'
         />
         <Line
           yAxisId='light'
