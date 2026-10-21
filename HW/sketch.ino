@@ -12,11 +12,8 @@ const char* mqtt_pass = MQTT_PASSWORD;
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWORD;
 
-// const char* mqtt_server = "broker.emqx.io";
-// const char* mqtt_server = "10.179.205.92";
-const char* mqtt_server = "192.168.1.15";
+const char* mqtt_server = "172.20.10.4";
 
-// Keep these aligned with the BE MQTT configuration (raw MQTT/TCP listener).
 const int mqtt_port = 2205;
 const char* topic_sensor  = "data_sensors";
 const char* topic_control = "device_control";

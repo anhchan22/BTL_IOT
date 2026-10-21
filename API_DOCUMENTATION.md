@@ -287,3 +287,46 @@ Backend cấu hình OpenAPI và cho phép truy cập tài liệu không cần JW
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 
+
+
+IOT/
+├── FE/                                      # Frontend: React + TypeScript
+│   ├── src/
+│   │   ├── routes/                          # Khai báo các trang và định tuyến
+│   │   │   ├── __root.tsx
+│   │   │   ├── login.tsx
+│   │   │   └── _authenticated/
+│   │   │       ├── route.tsx
+│   │   │       ├── index.tsx                # Dashboard
+│   │   │       ├── data-sensor/index.tsx
+│   │   │       ├── history/index.tsx
+│   │   │       └── profile/index.tsx
+│   │   ├── features/                        # Giao diện và nghiệp vụ từng chức năng
+│   │   │   ├── dashboard/
+│   │   │   ├── data-sensor/
+│   │   │   ├── history/
+│   │   │   └── profile/
+│   │   ├── components/layout/               # Sidebar, header, bố cục đăng nhập
+│   │   ├── lib/
+│   │   │   ├── api.ts                       # REST API và quản lý phiên JWT
+│   │   │   └── use-realtime.ts              # Kết nối STOMP/WebSocket
+│   │   ├── styles/
+│   │   └── main.tsx
+│
+├── BE/                                      # Backend: Spring Boot
+│   ├── src/main/java/com/ptit/iot/
+│   │   ├── controller/                      # REST controllers
+│   │   ├── service/                         # Xử lý nghiệp vụ và MQTT
+│   │   │   ├── impl/
+│   │   │   └── MqttService.java
+│   │   ├── repository/                      # Truy vấn MySQL qua JPA
+│   │   ├── entity/                          # User, Sensor, DataSensor, Device, ActionLog
+│   │   ├── dto/                             # Request, response và event
+│   │   ├── security/                        # JWT cho REST và STOMP
+│   │   ├── config/
+│   │   └── IotApplication.java
+│
+├── HW/                                      # Firmware IoT: PlatformIO/Arduino
+│   ├── sketch.ino                           # Firmware hiện được PlatformIO cấu hình
+│   ├── platformio.ini                       # Board NodeMCU v2 / ESP8266
+│   ├── libraries.txt
