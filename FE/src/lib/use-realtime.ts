@@ -21,6 +21,9 @@ export function useRealtime() {
         client.subscribe('/topic/device-status', () => {
           void queryClient.invalidateQueries({ queryKey: ['iot', 'devices'] })
         })
+        client.subscribe('/topic/rain-alert', () => {
+          void queryClient.invalidateQueries({ queryKey: ['iot', 'rain-alert'] })
+        })
         client.subscribe('/topic/action-log', () => {
           void queryClient.invalidateQueries({ queryKey: ['iot', 'history'] })
         })

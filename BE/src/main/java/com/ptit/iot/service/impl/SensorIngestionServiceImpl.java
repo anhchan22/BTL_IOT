@@ -16,6 +16,7 @@ import com.ptit.iot.exception.DomainCode;
 import com.ptit.iot.repository.DataSensorRepository;
 import com.ptit.iot.repository.SensorRepository;
 import com.ptit.iot.service.SensorIngestionService;
+import com.ptit.iot.service.RainAlertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class SensorIngestionServiceImpl implements SensorIngestionService {
 	private final SensorRepository sensorRepository;
 	private final DataSensorRepository dataSensorRepository;
 	private final ApplicationEventPublisher eventPublisher;
+	private final RainAlertService rainAlertService;
 
 	@Override
 	@Transactional
@@ -52,6 +54,7 @@ public class SensorIngestionServiceImpl implements SensorIngestionService {
 		long eventId = recordedAt.atZone(CLASSROOM_ZONE).toInstant().toEpochMilli();
 		SensorSnapshotEvent event = new SensorSnapshotEvent(eventId, values.get("temperature"), values.get("humidity"),
 				values.get("light"), values.get("rain"), recordedAt.atZone(CLASSROOM_ZONE).toOffsetDateTime().toString(), Map.copyOf(statuses));
+		rainAlertService.recordRainReading(values.get("rain"), recordedAt);
 		eventPublisher.publishEvent(event);
 		return event;
 	}

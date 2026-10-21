@@ -1,5 +1,6 @@
 package com.ptit.iot.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -37,6 +38,9 @@ public class Device {
 
 	@Column(length = 255)
 	private String description;
+
+	@Column(name = "alert_threshold_rain", precision = 10, scale = 2)
+	private BigDecimal alertThresholdRain;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "current_status", nullable = false, length = 10)

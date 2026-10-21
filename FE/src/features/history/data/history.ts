@@ -1,7 +1,7 @@
 import { type HistoryRecord } from './schema'
 
 const baseTime = new Date('2026-08-17T09:00:00+07:00')
-const devices: HistoryRecord['device'][] = ['LED1', 'LED2', 'LED3']
+const devices: HistoryRecord['device'][] = ['LED1', 'LED2', 'LED3', 'LED4']
 
 export const historyRecords: HistoryRecord[] = Array.from({ length: 24 }, (_, i) => {
   const action: HistoryRecord['action'] = i % 2 === 0 ? 'ON' : 'OFF'

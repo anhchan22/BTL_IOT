@@ -87,4 +87,7 @@ public interface ActionLogRepository extends JpaRepository<ActionLog, Long> {
 	List<ActionLog> findByBatchIdAndStatus(String batchId, ActionLogStatus status);
 	List<ActionLog> findAllByStatusAndBatchIdIsNotNull(ActionLogStatus status);
 	List<ActionLog> findAllByStatusAndRequestedAtBefore(ActionLogStatus status, LocalDateTime before);
+	long countByDevice_DeviceCodeAndActionAndStatusAndRequestedAtGreaterThanEqualAndRequestedAtLessThan(
+			String deviceCode, DeviceAction action, ActionLogStatus status, LocalDateTime from, LocalDateTime to);
+	Optional<ActionLog> findTopByDevice_DeviceCodeOrderByRequestedAtDesc(String deviceCode);
 }

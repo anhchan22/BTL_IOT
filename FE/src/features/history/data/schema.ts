@@ -1,4 +1,4 @@
-export type DeviceName = 'LED1' | 'LED2' | 'LED3'
+export type DeviceName = 'LED1' | 'LED2' | 'LED3' | 'LED4'
 export type DeviceAction = 'ON' | 'OFF'
 export type DeviceStatus = 'SUCCESS' | 'FAILED' | 'LOADING'
 export type DeviceControlStatus = 'ON' | 'OFF' | 'LOADING'

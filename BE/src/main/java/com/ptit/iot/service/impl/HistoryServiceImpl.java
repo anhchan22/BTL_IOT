@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class HistoryServiceImpl implements HistoryService {
-	private static final List<String> DEVICE_CODES = List.of("LED1", "LED2", "LED3");
+	private static final List<String> DEVICE_CODES = List.of("LED1", "LED2", "LED3", "LED4");
 	private final ActionLogRepository actionLogRepository;
 	private final IoTMapper mapper;
 

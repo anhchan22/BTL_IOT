@@ -206,6 +206,7 @@ export function History() {
               <select id='history-device' className='h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs' value={device} onChange={event => setDevice(event.target.value)}>
                 <option value=''>Tất cả</option>
                 {['LED1', 'LED2', 'LED3'].map(item => <option key={item} value={item}>{item}</option>)}
+                <option value='LED4'>LED cảnh báo</option>
               </select>
             </div>
             <div className='grid gap-2'>
@@ -247,7 +248,7 @@ export function History() {
                 : !result?.items.length ? <tr><td colSpan={7} className='p-8 text-center text-muted-foreground'>Chưa có thao tác phù hợp.</td></tr>
                   : result.items.map((row: HistoryRecord) => <tr key={row.id} className='border-t hover:bg-muted/40'>
                     <td className='px-3 py-2.5 tabular-nums'>{row.id}</td>
-                    <td className='px-3 py-2.5'>{row.device}</td>
+                    <td className='px-3 py-2.5'>{row.device === 'LED4' ? 'LED cảnh báo' : row.device}</td>
                     <td className='px-3 py-2.5'>
                       <span className={`inline-flex min-w-12 justify-center rounded-full border px-2 py-0.5 text-xs font-medium ${row.action === 'ON' ? 'border-primary bg-primary text-primary-foreground' : 'bg-background'}`}>
                         {row.action}

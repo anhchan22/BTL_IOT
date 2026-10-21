@@ -50,13 +50,16 @@ export function SensorChart({ data, height = 260 }: SensorChartProps) {
           axisLine={false}
           width={44}
         />
+        <YAxis yAxisId='rain' domain={[0, 500]} hide />
         <Tooltip
           labelFormatter={(value) => formatTime(String(value))}
           formatter={(value, name) => [
             name === 'temperature'
               ? `${value} °C`
-              : name === 'humidity' || name === 'rain'
+              : name === 'humidity'
                 ? `${value}%`
+                : name === 'rain'
+                  ? `${value} mức`
                 : `${value} lux`,
             name === 'temperature'
               ? 'Nhiệt độ'
@@ -68,7 +71,7 @@ export function SensorChart({ data, height = 260 }: SensorChartProps) {
           ]}
         />
         <Line
-          yAxisId='temperature'
+          yAxisId='rain'
           type='monotone'
           dataKey='humidity'
           stroke='currentColor'

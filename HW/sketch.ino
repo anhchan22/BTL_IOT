@@ -12,9 +12,7 @@ const char* mqtt_pass = MQTT_PASSWORD;
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWORD;
 
-// const char* mqtt_server = "broker.emqx.io";
-// const char* mqtt_server = "10.179.205.92";
-const char* mqtt_server = "192.168.1.15";
+const char* mqtt_server = "172.20.10.6";
 
 // Keep these aligned with the BE MQTT configuration (raw MQTT/TCP listener).
 const int mqtt_port = 2205;
@@ -31,12 +29,17 @@ bool lightSensorReady = false;
 #define LED1_PIN D0      
 #define LED2_PIN D1    
 #define LED3_PIN D2    
+#define ALERT_LED_PIN D4  // GPIO2; active-low, kept HIGH during boot.
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 unsigned long lastMsgTime = 0;
 const int SENSOR_READ_INTERVAL = 2000;
+
+static float readDoMua() {
+  return static_cast<float>(random(0, 501));
+}
 
 void setup_wifi() {
   delay(10);
@@ -58,7 +61,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("]: ");
   String messageTemp;
-  for (int i = 0; i < length; i++) {
+  for (unsigned int i = 0; i < length; i++) {
     messageTemp += (char)payload[i];
   }
   Serial.println(messageTemp);
@@ -79,13 +82,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
   strAction.toUpperCase();
   const bool turnOn = strAction == "ON";
   const bool validAction = turnOn || strAction == "OFF";
-  const bool validDevice = device_id >= 0 && device_id <= 3;
+  const bool validDevice = device_id >= 0 && device_id <= 4;
   const bool isSuccess = validAction && validDevice;
   const uint8_t outputLevel = turnOn ? HIGH : LOW;
   if (validAction && validDevice) {
     if (device_id == 0 || device_id == 1) digitalWrite(LED1_PIN, outputLevel);
     if (device_id == 0 || device_id == 2) digitalWrite(LED2_PIN, outputLevel);
     if (device_id == 0 || device_id == 3) digitalWrite(LED3_PIN, outputLevel);
+    if (device_id == 4) digitalWrite(ALERT_LED_PIN, turnOn ? LOW : HIGH);
   }
 
   if (isSuccess) {
@@ -127,9 +131,11 @@ void setup() {
   pinMode(LED1_PIN, OUTPUT);
   pinMode(LED2_PIN, OUTPUT);
   pinMode(LED3_PIN, OUTPUT);
+  pinMode(ALERT_LED_PIN, OUTPUT);
   digitalWrite(LED1_PIN, LOW);
   digitalWrite(LED2_PIN, LOW);
   digitalWrite(LED3_PIN, LOW);
+  digitalWrite(ALERT_LED_PIN, HIGH);
 
   dht.begin();
   Wire.begin(LIGHT_SDA_PIN, LIGHT_SCL_PIN);
@@ -158,7 +164,7 @@ void loop() {
     }
     float lux = lightSensorReady ? lightMeter.readLightLevel() : 0.0;
     if (!isfinite(lux) || lux < 0.0) lux = 0.0;
-    const int rain = random(0, 101); // Simulated rainfall percentage (0-100%).
+    const float rain = readDoMua();
 
     if (isnan(h) || isnan(t)) {
       Serial.println("Lỗi: Không thể đọc dữ liệu từ cảm biến DHT!");
@@ -168,7 +174,7 @@ void loop() {
     Serial.print("Nhiệt độ: "); Serial.print(t);
     Serial.print("°C | Độ ẩm: "); Serial.print(h);
     Serial.print("% | Ánh sáng: "); Serial.print(lux, 1);
-    Serial.print(" Lux | Độ mưa: "); Serial.print(rain); Serial.println("%");
+    Serial.print(" Lux | Độ mưa: "); Serial.println(rain, 0);
 
     StaticJsonDocument<200> doc;
     doc["temperature"] = t;

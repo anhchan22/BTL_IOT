@@ -58,6 +58,11 @@ public class MqttService {
 		thread.setDaemon(true);
 		return thread;
 	});
+	private final ScheduledExecutorService deviceControlExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+		Thread thread = new Thread(runnable, "mqtt-device-control");
+		thread.setDaemon(true);
+		return thread;
+	});
 
 	private volatile MqttClient client;
 
@@ -178,6 +183,17 @@ public class MqttService {
 		}
 	}
 
+	public void publishDeviceControlAsync(int deviceId, DeviceAction action) {
+		deviceControlExecutor.execute(() -> {
+			try {
+				publishDeviceControl(deviceId, action);
+			} catch (RuntimeException exception) {
+				log.warn("Could not publish asynchronous device control: deviceId={}, action={}: {}",
+						deviceId, action, exception.getMessage());
+			}
+		});
+	}
+
 	private void handleMessage(String topic, MqttMessage message) {
 		if (deviceResponseTopic.equals(topic)) {
 			handleDeviceResponse(message);
@@ -244,6 +260,7 @@ public class MqttService {
 	public void stop() {
 		reconnectExecutor.shutdownNow();
 		timeoutExecutor.shutdownNow();
+		deviceControlExecutor.shutdownNow();
 		MqttClient activeClient = client;
 		if (activeClient != null) {
 			try {
