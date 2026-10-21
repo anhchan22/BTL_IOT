@@ -20,12 +20,14 @@ public interface SensorApi {
 	@SecurityRequirement(name = "bearerAuth")
 	@GetMapping("/latest")
 	ApiResponse<SensorLatestResponse> latest();
+
 	@Operation(summary = "Đọc dữ liệu biểu đồ")
 	@SecurityRequirement(name = "bearerAuth")
 	@GetMapping("/chart")
 	ApiResponse<List<SensorChartPoint>> chart(
 			@RequestParam(name = "hours", required = false) Integer hours,
 			@RequestParam(name = "minutes", required = false) Integer minutes);
+
 	@Operation(summary = "Tra cứu lịch sử cảm biến")
 	@SecurityRequirement(name = "bearerAuth")
 	@GetMapping

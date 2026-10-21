@@ -12,7 +12,7 @@ const char* mqtt_pass = MQTT_PASSWORD;
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWORD;
 
-const char* mqtt_server = "172.20.10.4";
+const char* mqtt_server = "192.168.1.15";
 
 const int mqtt_port = 2205;
 const char* topic_sensor  = "data_sensors";
@@ -34,7 +34,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 unsigned long lastMsgTime = 0;
-const int SENSOR_READ_INTERVAL = 2000;
+const int SENSOR_READ_INTERVAL = 5000;
 
 void setup_wifi() {
   delay(10);

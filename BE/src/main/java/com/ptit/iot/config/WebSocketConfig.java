@@ -29,12 +29,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	@Override
 	public void configureMessageBroker(MessageBrokerRegistry registry) {
+		// Cho phép backend gửi tin đến các địa chỉ bắt đầu bằng /topic, trong đó có /topic/sensor.
 		registry.enableSimpleBroker("/topic");
 		registry.setApplicationDestinationPrefixes("/app");
 	}
 
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
+		// Tạo địa chỉ /ws để trình duyệt kết nối và nhận dữ liệu WebSocket.
 		registry.addEndpoint("/ws")
 				.setAllowedOriginPatterns(allowedOrigins.split(","))
 				.withSockJS();

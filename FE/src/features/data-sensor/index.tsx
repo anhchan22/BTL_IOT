@@ -49,19 +49,19 @@ const timeParts = (value: string) => {
 
 const displayTime = (value: string) => {
   const p = timeParts(value)
-  return `${p.hour}:${p.minute}:${p.second} ${p.day}/${p.month}/${p.year}`
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`
 }
 
-const copiedTime = (value: string) => {
-  const p = timeParts(value)
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`
-}
+const copiedTime = displayTime
 
 const exactTimeRange = (input: string) => {
-  const match = input.trim().match(/^(\d{4})(?:-(\d{2})(?:-(\d{2})(?:[ T](\d{2})(?::(\d{2})(?::(\d{2}))?)?)?)?)?$/)
-  if (!match) return null
+  const value = input.trim()
+  const isoMatch = value.match(/^(\d{4})(?:-(\d{2})(?:-(\d{2})(?:[ T](\d{2})(?::(\d{2})(?::(\d{2}))?)?)?)?)?$/)
+  const displayedMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2})(?::(\d{2})(?::(\d{2}))?)?)?$/)
+  if (!isoMatch && !displayedMatch) return null
 
-  const [year, month, day, hour, minute, second] = match.slice(1).map(part => part === undefined ? undefined : Number(part))
+  const parts = isoMatch?.slice(1) ?? [displayedMatch![3], displayedMatch![2], displayedMatch![1], ...displayedMatch!.slice(4)]
+  const [year, month, day, hour, minute, second] = parts.map(part => part === undefined ? undefined : Number(part))
   const precision = second !== undefined ? 'second'
     : minute !== undefined ? 'minute'
       : hour !== undefined ? 'hour'
@@ -123,22 +123,23 @@ export function DataSensor() {
   const apply = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSearchError('')
+    const value = searchValue.trim()
+    const range = value ? exactTimeRange(value) : null
+    const searchTime = searchField === 'time' || (searchField === 'all' && range !== null)
 
-    if (searchField === 'time' && searchValue.trim()) {
-      const range = exactTimeRange(searchValue)
-      if (!range) {
-        setSearchError('Định dạng hỗ trợ: YYYY, YYYY-MM, YYYY-MM-DD, YYYY-MM-DD HH, YYYY-MM-DD HH:mm hoặc YYYY-MM-DD HH:mm:ss.')
+    if (searchTime) {
+      if (value && !range) {
+        setSearchError('Định dạng hỗ trợ: DD/MM/YYYY HH:mm:ss hoặc YYYY-MM-DD HH:mm:ss (có thể bỏ giờ, phút, giây).')
         return
       }
-      setFilters({ ...initialFilters, from: range.from, to: range.to })
+      setFilters({ ...initialFilters, from: range?.from ?? '', to: range?.to ?? '' })
     } else {
-      const value = searchValue.trim()
       if (value && !Number.isFinite(Number(value))) {
-        setSearchError('Giá trị tìm kiếm phải là số; nếu tìm theo thời gian, chọn “Thời gian”.')
+        setSearchError('Nhập giá trị số hoặc thời gian dạng DD/MM/YYYY HH:mm:ss.')
         return
       }
       setFilters({
-        sensor: searchField === 'all' || searchField === 'time' ? '' : searchField,
+        sensor: searchField === 'all' ? '' : searchField,
         value,
         from: '',
         to: '',
@@ -215,7 +216,7 @@ export function DataSensor() {
               id='search-value'
               value={searchValue}
               onChange={event => { setSearchValue(event.target.value); setSearchError('') }}
-              placeholder={searchField === 'time' ? 'YYYY | YYYY-MM | YYYY-MM-DD HH:mm:ss' : 'Nhập giá trị cần tìm'}
+              placeholder={searchField === 'time' ? 'DD/MM/YYYY HH:mm:ss hoặc YYYY-MM-DD HH:mm:ss' : searchField === 'all' ? 'Giá trị số hoặc DD/MM/YYYY HH:mm:ss' : 'Nhập giá trị cần tìm'}
               aria-invalid={Boolean(searchError)}
             />
           </div>

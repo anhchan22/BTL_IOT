@@ -37,6 +37,8 @@ import com.ptit.iot.entity.DeviceAction;
 public class MqttService {
 
 	private static final Pattern NUMBER_PATTERN = Pattern.compile("[-+]?(?:\\d+(?:[.,]\\d*)?|[.,]\\d+)(?:[eE][-+]?\\d+)?");
+	// Mức 0: gửi tối đa một lần, không xác nhận hay gửi lại nếu tin nhắn bị mất.
+	// Chọn mức này cho số đo cảm biến gửi thường xuyên để giảm lưu lượng truyền.
 	private static final int SENSOR_QOS = 0;
 
 	private final String brokerUrl;
@@ -98,6 +100,7 @@ public class MqttService {
 
 	@EventListener(ApplicationReadyEvent.class)
 	public void startConnectionLoop() {
+		// Khi backend khởi động, bắt đầu kết nối MQTT và định kỳ kiểm tra thiết bị.
 		reconnectExecutor.scheduleWithFixedDelay(this::connectIfNeeded, 0, 5, TimeUnit.SECONDS);
 		timeoutExecutor.scheduleWithFixedDelay(() -> {
 			try {
@@ -109,6 +112,7 @@ public class MqttService {
 		}, 1, 1, TimeUnit.SECONDS);
 	}
 
+	// Tạo kết nối tới máy chủ MQTT; nếu mất kết nối thì bộ hẹn giờ sẽ thử kết nối lại.
 	private synchronized void connectIfNeeded() {
 		try {
 			if (client != null && client.isConnected()) return;
@@ -129,6 +133,7 @@ public class MqttService {
 
 					@Override
 					public void messageArrived(String topic, MqttMessage message) {
+						// Thư viện MQTT gọi hàm này mỗi khi backend nhận được một tin nhắn.
 						handleMessage(topic, message);
 					}
 
@@ -153,16 +158,16 @@ public class MqttService {
 		}
 	}
 
+	// Đăng ký để backend nhận dữ liệu cảm biến và các phản hồi từ thiết bị.
 	private void subscribeTopics() {
 		MqttClient activeClient = client;
 		if (activeClient == null || !activeClient.isConnected()) return;
 		try {
+			// sensorTopic lấy từ app.mqtt.topic-sensors trong application.yaml (mặc định data_sensors).
+			// SENSOR_QOS = 0 nghĩa là backend nhận tin tối đa một lần, không yêu cầu xác nhận nhận tin.
 			activeClient.subscribe(sensorTopic, SENSOR_QOS);
-			log.info("Subscribed to MQTT sensor topic {} (QoS {})", sensorTopic, SENSOR_QOS);
 			activeClient.subscribe(deviceResponseTopic, SENSOR_QOS);
-			log.info("Subscribed to MQTT device response topic {} (QoS {})", deviceResponseTopic, SENSOR_QOS);
 			activeClient.subscribe(deviceAvailabilityTopic, 1);
-			log.info("Subscribed to MQTT device availability topic {} (QoS 1)", deviceAvailabilityTopic);
 		} catch (MqttException exception) {
 			log.error("Failed to subscribe to MQTT sensor topic {}", sensorTopic, exception);
 		}
@@ -187,19 +192,24 @@ public class MqttService {
 			throw new IllegalStateException("MQTT broker is not connected");
 		}
 		try {
+			// Tạo nội dung lệnh gồm mã thiết bị và hành động bật hoặc tắt.
 			var payload = objectMapper.createObjectNode();
 			payload.put("deviceId", deviceId);
 			payload.put("action", action.name().toLowerCase(java.util.Locale.ROOT));
+			// Đánh dấu đây là lệnh khôi phục trạng thái đã lưu khi ESP kết nối lại.
 			if (restore) payload.put("restore", true);
+			// Chuyển nội dung lệnh thành dữ liệu byte để gửi qua MQTT.
 			MqttMessage message = new MqttMessage(objectMapper.writeValueAsBytes(payload));
+			// Mức 1 yêu cầu xác nhận đã nhận tin và có thể gửi lại nếu chưa được xác nhận.
 			message.setQos(1);
+			// Gửi lệnh lên topic điều khiển mà ESP đã đăng ký nhận.
 			activeClient.publish(deviceControlTopic, message);
-			log.info("Published device {} to {}: deviceId={}, action={}", restore ? "restore" : "control", deviceControlTopic, deviceId, action);
 		} catch (MqttException | tools.jackson.core.JacksonException exception) {
 			throw new IllegalStateException("Could not publish MQTT device command", exception);
 		}
 	}
 
+	// Phân loại tin nhắn MQTT; với topic cảm biến thì đọc ba giá trị và chuyển đi lưu.
 	private void handleMessage(String topic, MqttMessage message) {
 		if (deviceAvailabilityTopic.equals(topic)) {
 			handleDeviceAvailability(message);
@@ -215,12 +225,19 @@ public class MqttService {
 		}
 		String payload = new String(message.getPayload(), StandardCharsets.UTF_8);
 		try {
+			// Đọc chuỗi JSON để có thể lấy từng giá trị cảm biến.
 			JsonNode root = objectMapper.readTree(payload);
+			// Lấy nhiệt độ;
 			BigDecimal temperature = number(root, "nhiet_do", "temperature");
+			// Lấy độ ẩm;
 			BigDecimal humidity = number(root, "do_am", "humidity");
+			// Lấy ánh sáng;
 			BigDecimal light = number(root, "anh_sang", "light");
+			// Lưu ba số đo vào cơ sở dữ liệu và tạo thông báo để gửi ra màn hình sau khi lưu xong.
 			SensorSnapshotEvent event = ingestionService.recordSnapshot(temperature, humidity, light);
+			// Có dữ liệu mới từ ESP nên ghi nhận thiết bị đang hoạt động.
 			noteDeviceHeartbeat();
+
 			log.debug("Saved sensor snapshot at {}", event.time());
 		} catch (Exception exception) {
 			log.warn("Discarding invalid MQTT sensor message on {}: {}", topic, exception.getMessage());
@@ -237,9 +254,11 @@ public class MqttService {
 			String action = root.path("action").asString(null);
 			String status = root.path("status").asString(null);
 			int deviceId = root.get("deviceId").intValue();
+			// Nếu ESP đánh dấu đây là phản hồi khôi phục thì chuyển cho hàm xử lý riêng.
 			if (root.path("restore").asBoolean(false)) {
 				deviceServiceProvider.getObject().handleDeviceRestoreAck(deviceId, action, status);
 			} else {
+				// Các phản hồi còn lại là xác nhận cho lệnh bật hoặc tắt thông thường.
 				deviceServiceProvider.getObject().handleDeviceAck(deviceId, action, status);
 			}
 		} catch (Exception exception) {
@@ -282,6 +301,7 @@ public class MqttService {
 		}
 	}
 
+	// Đọc một giá trị cảm biến từ nội dung tin nhắn; báo lỗi nếu thiếu hoặc không phải số.
 	private BigDecimal number(JsonNode root, String... names) {
 		JsonNode value = null;
 		for (String name : names) {
@@ -299,6 +319,7 @@ public class MqttService {
 		return new BigDecimal(matcher.group().replace(',', '.'));
 	}
 
+	//gửi dữ liệu lên màn hình
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void broadcastSensorSnapshot(SensorSnapshotEvent event) {
 		messagingTemplate.convertAndSend("/topic/sensor", event);

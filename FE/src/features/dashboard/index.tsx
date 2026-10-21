@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Droplets, Lightbulb, Thermometer, WifiOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -7,18 +7,38 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { endpoints, type Device } from '@/lib/api'
+import { endpoints, type Device, type SensorPoint } from '@/lib/api'
+import { mergeSensorChartPoints } from '@/lib/sensor-chart-points'
 import { DeviceCard } from './components/device-card'
 import { SensorChart } from './components/sensor-chart'
 
 export function Dashboard() {
   const [chartMinutes, setChartMinutes] = useState(60)
   const qc = useQueryClient()
-  const latest = useQuery({ queryKey: ['iot', 'latest'], queryFn: endpoints.latest, refetchInterval: 15000 })
-  const chart = useQuery({ queryKey: ['iot', 'chart', chartMinutes], queryFn: () => endpoints.chart(chartMinutes), refetchInterval: 5000 })
+  const latest = useQuery({ queryKey: ['iot', 'latest'], queryFn: endpoints.latest })
+  const chart = useQuery({
+    queryKey: ['iot', 'chart', chartMinutes],
+    queryFn: async () => mergeSensorChartPoints(
+      await endpoints.chart(chartMinutes),
+      qc.getQueryData<SensorPoint[]>(['iot', 'chart', chartMinutes]) ?? [],
+      chartMinutes
+    ),
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+  })
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      qc.setQueryData<SensorPoint[]>(['iot', 'chart', chartMinutes], previous => {
+        if (!previous) return previous
+        const current = mergeSensorChartPoints(previous, [], chartMinutes)
+        return current.length === previous.length ? previous : current
+      })
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [chartMinutes, qc])
   const devicesQuery = useQuery({ queryKey: ['iot', 'devices'], queryFn: endpoints.devices, refetchInterval: 3000 })
   const mutation = useMutation({ mutationFn: endpoints.control, onSuccess: async ({ command }) => { toast.success(`Đã gửi lệnh ${command}`); await qc.invalidateQueries({ queryKey: ['iot', 'devices'] }) }, onError: () => toast.error('Không gửi được lệnh. Kiểm tra kết nối MQTT.') })
-  const devices = devicesQuery.data ?? []
+  const devices = (devicesQuery.data ?? []).filter(device => device.deviceCode !== 'LED4')
   const hasOfflineDevice = devices.some(device => !device.online)
   const controlsUnavailable = devicesQuery.isLoading || devicesQuery.isError || devices.length !== 3 || hasOfflineDevice
   const toggle = (device: Device, checked: boolean) => mutation.mutate(`${device.deviceCode}_${checked ? 'ON' : 'OFF'}`)

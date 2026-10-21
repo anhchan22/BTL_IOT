@@ -58,14 +58,19 @@ public class DeviceServiceImpl implements DeviceService {
 
 	@Override
 	public List<ActionLogDTO> sendControl(String command, AuthenticatedUser actor) {
+		// Phân tích lệnh, ví dụ LED1_ON thành mã thiết bị và hành động bật.
 		ParsedCommand parsed = parseCommand(command);
+		// Tạo bản ghi lịch sử ở trạng thái đang chờ xác nhận từ ESP.
 		CommandMutation created = transactionTemplate().execute(status -> createPending(parsed, actor));
+
 		if (created == null) throw new BusinessException(DomainCode.INTERNAL_ERROR);
 		broadcast(created);
 		try {
+			// Gửi mã thiết bị và hành động qua MQTT để ESP thực hiện.
 			mqttService.publishDeviceControl(parsed.deviceId(), parsed.action());
 			return created.logs();
 		} catch (RuntimeException exception) {
+			// Nếu không gửi được MQTT, đánh dấu các lệnh chờ là thất bại.
 			CommandMutation failed = transactionTemplate().execute(status -> failByLogIds(
 					created.logs().stream().map(ActionLogDTO::id).toList(), "MQTT publish failed"));
 			if (failed != null) broadcast(failed);
@@ -94,22 +99,28 @@ public class DeviceServiceImpl implements DeviceService {
 		CommandMutation mutation = transactionTemplate().execute(status -> {
 			List<String> codes = deviceId == 0 ? DEVICE_CODES : deviceCodesForId(deviceId);
 			if (codes.isEmpty()) return null;
+			// Khóa các thiết bị trong lúc cập nhật để tránh hai phản hồi sửa trạng thái cùng lúc.
 			List<Device> locked = deviceRepository.findByDeviceCodesForUpdate(codes);
 			List<ActionLog> pending;
 			if (deviceId == 0) {
+				// Với lệnh tất cả, tìm nhóm lệnh đang chờ mới nhất có cùng hành động bật hoặc tắt.
 				ActionLog candidate = actionLogRepository.findAllByStatusAndBatchIdIsNotNull(ActionLogStatus.LOADING).stream()
 						.filter(log -> log.getAction() == action)
 						.max(Comparator.comparing(ActionLog::getRequestedAt)).orElse(null);
 				if (candidate == null) return null;
+				// Lấy toàn bộ ba bản ghi thuộc cùng một nhóm lệnh chờ.
 				pending = actionLogRepository.findByBatchIdAndStatus(candidate.getBatchId(), ActionLogStatus.LOADING);
 				if (pending.size() != DEVICE_CODES.size() || pending.stream().anyMatch(log -> log.getAction() != action)) return null;
 			} else {
+				// Với một đèn, lấy lệnh chờ gần nhất của đúng đèn và đúng hành động.
 				pending = actionLogRepository.findTopByDevice_DeviceCodeAndStatusAndActionOrderByRequestedAtDesc(
 						codes.getFirst(), ActionLogStatus.LOADING, action).map(List::of).orElse(null);
 				if (pending == null) return null;
 			}
+			// Cập nhật lịch sử và trạng thái thiết bị theo kết quả ESP gửi về.
 			return completeLogs(pending, locked, result.equals("success"), result.equals("success") ? null : "Device rejected command");
 		});
+		// Báo trạng thái mới cho các màn hình đang theo dõi.
 		if (mutation != null) broadcast(mutation);
 	}
 
